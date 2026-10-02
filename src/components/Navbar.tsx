@@ -39,7 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       ? [{ id: 'snbt-targets', label: 'Peluang 1–4 Prodi PTN' }]
       : []),
     { id: 'mastery', label: activeTrack === 'YTB' ? 'Materi YÖS & IQ' : 'Penguasaan Materi' },
-    { id: 'quiz', label: 'Latihan Soal Asli / FR' },
+    { id: 'quiz', label: activeTrack === 'TKA' ? 'Latihan Soal Per-Mapel' : 'Latihan Soal Asli / FR' },
     { id: 'tryout', label: 'Rekap Tryout' },
     { id: 'journal', label: 'Jurnal Evaluasi' },
   ];

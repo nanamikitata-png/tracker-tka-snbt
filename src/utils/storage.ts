@@ -10,6 +10,7 @@ import {
   YtbPreferences,
   SnbtChoice,
   RaporData,
+  YtbChoice,
 } from '../types';
 import {
   INITIAL_TOPICS,
@@ -31,10 +32,11 @@ const STORAGE_KEYS = {
   THEME: 'studikuasai_theme_v2',
   TARGET_UNIVERSITY: 'studikuasai_target_univ_v2',
   CUSTOM_THEMES: 'studikuasai_custom_themes_v2',
-  QUIZ_QUESTIONS: 'studikuasai_quiz_v2',
+  QUIZ_QUESTIONS: 'studikuasai_quiz_v3',
   TKA_CONFIG: 'studikuasai_tka_config_v2',
   YTB_PREFERENCES: 'studikuasai_ytb_prefs_v2',
   SNBT_CHOICES: 'studikuasai_snbt_choices_v2',
+  YTB_CHOICES: 'studikuasai_ytb_choices_v2',
   RAPOR_DATA: 'studikuasai_rapor_kurikulum_merdeka_v1',
 };
 
@@ -137,6 +139,90 @@ export function loadSnbtChoices(): SnbtChoice[] {
 
 export function saveSnbtChoices(choices: SnbtChoice[]): void {
   safeSet(STORAGE_KEYS.SNBT_CHOICES, choices);
+}
+
+// Default 6 Choices for Türkiye Bursları (TBBS) compliant with City Rules (1/3 outside Big 3)
+export const DEFAULT_YTB_CHOICES: YtbChoice[] = [
+  {
+    id: 'ytb-ch-1',
+    order: 1,
+    universityName: 'Boğaziçi Üniversitesi',
+    majorName: 'Industrial Engineering / Computer Science',
+    city: 'Istanbul',
+    isTopThreeCities: true,
+    languageOfInstruction: '100% Bahasa Inggris',
+    tier: 'Tier 1 - Kampus Elit Global',
+    minGpaRequired: 70,
+    notes: 'Pilihan impian utama: Kampus nomor 1 Turki dengan reputasi riset global dan standar Ivy League',
+  },
+  {
+    id: 'ytb-ch-2',
+    order: 2,
+    universityName: 'Middle East Technical University (METU / ODTÜ)',
+    majorName: 'Mechanical Engineering / Electrical-Electronics',
+    city: 'Ankara',
+    isTopThreeCities: true,
+    languageOfInstruction: '100% Bahasa Inggris',
+    tier: 'Tier 1 - Kampus Elit Global',
+    minGpaRequired: 70,
+    notes: 'Kampus teknik nomor 1 Timur Tengah dengan fasilitas riset technopark unggulan',
+  },
+  {
+    id: 'ytb-ch-3',
+    order: 3,
+    universityName: 'Istanbul Technical University (İTÜ)',
+    majorName: 'Artificial Intelligence & Data Engineering',
+    city: 'Istanbul',
+    isTopThreeCities: true,
+    languageOfInstruction: 'Campuran (Inggris & Turki)',
+    tier: 'Tier 1 - Kampus Elit Global',
+    minGpaRequired: 70,
+    notes: 'Pusat teknologi dan komputasi tertua di Turki dengan koneksi industri pertahanan & teknologi',
+  },
+  {
+    id: 'ytb-ch-4',
+    order: 4,
+    universityName: 'Istanbul Üniversitesi',
+    majorName: 'Computer Engineering & Information Systems',
+    city: 'Istanbul',
+    isTopThreeCities: true,
+    languageOfInstruction: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)',
+    tier: 'Tier 2 - Universitas Negeri Utama',
+    minGpaRequired: 70,
+    notes: 'Universitas negeri tertua dan terkemuka dengan kuota beasiswa internasional ramah',
+  },
+  {
+    id: 'ytb-ch-5',
+    order: 5,
+    universityName: 'Bursa Uludağ Üniversitesi',
+    majorName: 'Automotive & Industrial Engineering',
+    city: 'Bursa',
+    isTopThreeCities: false,
+    languageOfInstruction: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)',
+    tier: 'Tier 3 - Kampus Kunci Luar 3 Kota',
+    minGpaRequired: 70,
+    notes: 'Kunci Lolos Luar 3 Kota: Pusat industri manufaktur & otomotif nomor 1 Turki (Sesuai Aturan TBBS)',
+  },
+  {
+    id: 'ytb-ch-6',
+    order: 6,
+    universityName: 'Anadolu Üniversitesi & Eskişehir Osmangazi',
+    majorName: 'Software Engineering / Aviation',
+    city: 'Eskişehir',
+    isTopThreeCities: false,
+    languageOfInstruction: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)',
+    tier: 'Tier 3 - Kampus Kunci Luar 3 Kota',
+    minGpaRequired: 70,
+    notes: 'Kunci Lolos Luar 3 Kota: Kota pelajar nomor 1 paling aman & ramah mahasiswa di Turki',
+  },
+];
+
+export function loadYtbChoices(): YtbChoice[] {
+  return safeGet<YtbChoice[]>(STORAGE_KEYS.YTB_CHOICES, DEFAULT_YTB_CHOICES);
+}
+
+export function saveYtbChoices(choices: YtbChoice[]): void {
+  safeSet(STORAGE_KEYS.YTB_CHOICES, choices);
 }
 
 // Default Rapor Data following Kurikulum Merdeka

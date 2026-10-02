@@ -225,4 +225,17 @@ export interface SnbtStrategyAssessment {
   recommendationSummary: string;
 }
 
+export interface YtbChoice {
+  id: string;
+  order: number; // 1 to 12
+  universityName: string;
+  majorName: string;
+  city: string;
+  isTopThreeCities: boolean; // true if Istanbul, Ankara, Izmir
+  languageOfInstruction: '100% Bahasa Inggris' | 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)' | 'Campuran (Inggris & Turki)';
+  tier: 'Tier 1 - Kampus Elit Global' | 'Tier 2 - Universitas Negeri Utama' | 'Tier 3 - Kampus Kunci Luar 3 Kota';
+  minGpaRequired: number; // 70 for general, 90 for Medicine/Dentistry/Pharmacy
+  notes?: string;
+}
+
 

@@ -408,6 +408,7 @@ export default function App() {
                 config={tkaConfig}
                 currentTheme={currentTheme}
                 onUpdateConfig={handleUpdateTkaConfig}
+                onNavigateToQuiz={() => setActiveTab('quiz')}
               />
             )}
 

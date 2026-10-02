@@ -1,3 +1,5 @@
+import { YtbChoice } from '../types';
+
 export interface YtbDocRequirement {
   id: string;
   category: 'Wajib Utama' | 'Sangat Direkomendasikan' | 'Pendukung Khusus';
@@ -418,5 +420,345 @@ export function calculateYtbProbability(
     breakdownInsights: insights,
     recommendations: recs,
     cityRuleCompliant,
+  };
+}
+
+// Preset database of popular Turkish Universities for 12 Choices
+export interface YtbPresetUniversity {
+  name: string;
+  city: string;
+  isTopThreeCities: boolean;
+  tier: 'Tier 1 - Kampus Elit Global' | 'Tier 2 - Universitas Negeri Utama' | 'Tier 3 - Kampus Kunci Luar 3 Kota';
+  majors: {
+    name: string;
+    language: '100% Bahasa Inggris' | 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)' | 'Campuran (Inggris & Turki)';
+    minGpa: number;
+  }[];
+}
+
+export const YTB_PRESET_UNIVERSITIES: YtbPresetUniversity[] = [
+  // --- TIER 1 ---
+  {
+    name: 'Boğaziçi Üniversitesi',
+    city: 'Istanbul',
+    isTopThreeCities: true,
+    tier: 'Tier 1 - Kampus Elit Global',
+    majors: [
+      { name: 'Computer Engineering (Teknik Komputer)', language: '100% Bahasa Inggris', minGpa: 70 },
+      { name: 'Industrial Engineering (Teknik Industri)', language: '100% Bahasa Inggris', minGpa: 70 },
+      { name: 'Economics (Ilmu Ekonomi)', language: '100% Bahasa Inggris', minGpa: 70 },
+      { name: 'Molecular Biology & Genetics', language: '100% Bahasa Inggris', minGpa: 70 },
+    ],
+  },
+  {
+    name: 'Middle East Technical University (METU / ODTÜ)',
+    city: 'Ankara',
+    isTopThreeCities: true,
+    tier: 'Tier 1 - Kampus Elit Global',
+    majors: [
+      { name: 'Mechanical Engineering (Teknik Mesin)', language: '100% Bahasa Inggris', minGpa: 70 },
+      { name: 'Electrical & Electronics Engineering', language: '100% Bahasa Inggris', minGpa: 70 },
+      { name: 'Aerospace Engineering (Teknik Dirgantara)', language: '100% Bahasa Inggris', minGpa: 70 },
+      { name: 'Civil Engineering (Teknik Sipil)', language: '100% Bahasa Inggris', minGpa: 70 },
+    ],
+  },
+  {
+    name: 'Istanbul Technical University (İTÜ)',
+    city: 'Istanbul',
+    isTopThreeCities: true,
+    tier: 'Tier 1 - Kampus Elit Global',
+    majors: [
+      { name: 'Artificial Intelligence & Data Engineering', language: 'Campuran (Inggris & Turki)', minGpa: 70 },
+      { name: 'Naval Architecture & Marine Engineering', language: 'Campuran (Inggris & Turki)', minGpa: 70 },
+      { name: 'Chemical Engineering (Teknik Kimia)', language: 'Campuran (Inggris & Turki)', minGpa: 70 },
+      { name: 'Architecture (Arsitektur)', language: 'Campuran (Inggris & Turki)', minGpa: 70 },
+    ],
+  },
+  {
+    name: 'Hacettepe Üniversitesi',
+    city: 'Ankara',
+    isTopThreeCities: true,
+    tier: 'Tier 1 - Kampus Elit Global',
+    majors: [
+      { name: 'Medicine / Kedokteran Umum (English)', language: '100% Bahasa Inggris', minGpa: 90 },
+      { name: 'Medicine / Kedokteran Umum (Turkish)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 90 },
+      { name: 'Pharmacy (Farmasi)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 90 },
+      { name: 'Bioengineering (Bioteknologi)', language: '100% Bahasa Inggris', minGpa: 70 },
+    ],
+  },
+
+  // --- TIER 2 ---
+  {
+    name: 'Istanbul Üniversitesi',
+    city: 'Istanbul',
+    isTopThreeCities: true,
+    tier: 'Tier 2 - Universitas Negeri Utama',
+    majors: [
+      { name: 'International Relations (Hubungan Internasional)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+      { name: 'Business Administration (Manajemen Bisnis)', language: 'Campuran (Inggris & Turki)', minGpa: 70 },
+      { name: 'Faculty of Law (Ilmu Hukum)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+      { name: 'Computer Engineering', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+    ],
+  },
+  {
+    name: 'Ankara Üniversitesi',
+    city: 'Ankara',
+    isTopThreeCities: true,
+    tier: 'Tier 2 - Universitas Negeri Utama',
+    majors: [
+      { name: 'Political Sciences / Hubungan Internasional (Mülkiye)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+      { name: 'Biotechnology & Genetic Resources', language: 'Campuran (Inggris & Turki)', minGpa: 70 },
+      { name: 'Veterinary Medicine (Kedokteran Hewan)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+      { name: 'Physics & Astronomy', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+    ],
+  },
+  {
+    name: 'Yıldız Technical University (YTÜ)',
+    city: 'Istanbul',
+    isTopThreeCities: true,
+    tier: 'Tier 2 - Universitas Negeri Utama',
+    majors: [
+      { name: 'Mechatronics Engineering (Teknik Mekatronika)', language: 'Campuran (Inggris & Turki)', minGpa: 70 },
+      { name: 'Computer Engineering (Teknik Informatika)', language: '100% Bahasa Inggris', minGpa: 70 },
+      { name: 'Civil Engineering (Teknik Sipil)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+    ],
+  },
+  {
+    name: 'Ege Üniversitesi',
+    city: 'Izmir',
+    isTopThreeCities: true,
+    tier: 'Tier 2 - Universitas Negeri Utama',
+    majors: [
+      { name: 'Biomedical Engineering', language: 'Campuran (Inggris & Turki)', minGpa: 70 },
+      { name: 'Food Engineering (Teknologi Pangan)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+      { name: 'Medicine (Kedokteran Umum)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 90 },
+    ],
+  },
+
+  // --- TIER 3 (LUAR 3 KOTA BESAR - SANGAT DIANJURKAN TBBS) ---
+  {
+    name: 'Bursa Uludağ Üniversitesi',
+    city: 'Bursa',
+    isTopThreeCities: false,
+    tier: 'Tier 3 - Kampus Kunci Luar 3 Kota',
+    majors: [
+      { name: 'Automotive Engineering (Teknik Otomotif)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+      { name: 'Industrial Engineering (Teknik Industri)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+      { name: 'Computer Engineering (Teknik Komputer)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+    ],
+  },
+  {
+    name: 'Anadolu Üniversitesi & Eskişehir Osmangazi',
+    city: 'Eskişehir',
+    isTopThreeCities: false,
+    tier: 'Tier 3 - Kampus Kunci Luar 3 Kota',
+    majors: [
+      { name: 'Aviation Management & Flight School', language: 'Campuran (Inggris & Turki)', minGpa: 70 },
+      { name: 'Materials Science & Nanotechnology', language: '100% Bahasa Inggris', minGpa: 70 },
+      { name: 'Software Engineering (Rekayasa Perangkat Lunak)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+    ],
+  },
+  {
+    name: 'Selçuk Üniversitesi',
+    city: 'Konya',
+    isTopThreeCities: false,
+    tier: 'Tier 3 - Kampus Kunci Luar 3 Kota',
+    majors: [
+      { name: 'Computer Engineering (Teknik Komputer)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+      { name: 'Dentistry (Kedokteran Gigi)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 90 },
+      { name: 'Agricultural Sciences (Ilmu Pertanian)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+    ],
+  },
+  {
+    name: 'Akdeniz Üniversitesi',
+    city: 'Antalya',
+    isTopThreeCities: false,
+    tier: 'Tier 3 - Kampus Kunci Luar 3 Kota',
+    majors: [
+      { name: 'Medicine (Pusat Transplantasi Organ Dunia)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 90 },
+      { name: 'Tourism & Hospitality Management', language: '100% Bahasa Inggris', minGpa: 70 },
+      { name: 'Computer Engineering', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+    ],
+  },
+  {
+    name: 'Karadeniz Technical University (KTÜ)',
+    city: 'Trabzon',
+    isTopThreeCities: false,
+    tier: 'Tier 3 - Kampus Kunci Luar 3 Kota',
+    majors: [
+      { name: 'Marine Engineering (Teknik Kelautan)', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+      { name: 'Forestry & Environmental Engineering', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+      { name: 'Mining Engineering', language: 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)', minGpa: 70 },
+    ],
+  },
+];
+
+export interface YtbChoiceEvaluation {
+  choice: YtbChoice;
+  probability: number; // 0 - 100%
+  statusZone: 'Sangat Aman (Peluang Tinggi)' | 'Kompetitif (Target Realistis)' | 'Ketat (Ambitious / Tier 1)' | 'Di Bawah Batas Syarat (Under Min GPA)';
+  isGpaEligible: boolean;
+  feedback: string;
+}
+
+export interface YtbStrategyAssessment {
+  totalChoices: number;
+  bigThreeCount: number;
+  outsideBigThreeCount: number;
+  outsideRatioPercentage: number;
+  isCityRuleCompliant: boolean;
+  cityRuleMessage: string;
+  evaluatedChoices: YtbChoiceEvaluation[];
+  overallPortfolioChance: number;
+  portfolioVerdict: string;
+  strategicTips: string[];
+}
+
+export function evaluateYtbChoiceStrategy(
+  choices: YtbChoice[],
+  overallGpa: number,
+  hasEnglishCert: boolean,
+  hasAwards: boolean
+): YtbStrategyAssessment {
+  const total = choices.length;
+  const bigThreeCount = choices.filter(c => c.isTopThreeCities).length;
+  const outsideBigThreeCount = total - bigThreeCount;
+  const outsideRatioPercentage = total > 0 ? Math.round((outsideBigThreeCount / total) * 100) : 0;
+
+  // City rule compliance: At least 1/3 (or >= 2 if total >= 3)
+  const isCityRuleCompliant = total === 0 ? false : total < 3 ? outsideBigThreeCount >= 1 : outsideBigThreeCount >= Math.ceil(total / 3) || outsideBigThreeCount >= 2;
+
+  let cityRuleMessage = '';
+  if (total === 0) {
+    cityRuleMessage = 'Belum ada pilihan prodi yang dimasukkan.';
+  } else if (isCityRuleCompliant) {
+    cityRuleMessage = `Aturan Kota TBBS Terpenuhi: ${outsideBigThreeCount} dari ${total} pilihan (${outsideRatioPercentage}%) berada di luar 3 kota besar. Berkas aman dari diskualifikasi geografis.`;
+  } else {
+    cityRuleMessage = `Peringatan Aturan Kota: Hanya ${outsideBigThreeCount} pilihan di luar 3 kota besar (minimal disarankan 1/3 atau 2-3 kampus). Sistem TBBS berisiko mendiskualifikasi atau mengurangi poin kelulusan.`;
+  }
+
+  const evaluatedChoices: YtbChoiceEvaluation[] = choices.map((choice) => {
+    const isMedical = choice.minGpaRequired >= 90 || choice.majorName.toLowerCase().includes('kedokteran') || choice.majorName.toLowerCase().includes('medicine') || choice.majorName.toLowerCase().includes('pharmacy') || choice.majorName.toLowerCase().includes('dentistry');
+    const minGpa = isMedical ? 90 : 70;
+    const isGpaEligible = overallGpa >= minGpa;
+
+    if (!isGpaEligible) {
+      const prob = Math.max(5, Math.min(25, Math.round((overallGpa / minGpa) * 20)));
+      return {
+        choice,
+        probability: prob,
+        statusZone: 'Di Bawah Batas Syarat (Under Min GPA)',
+        isGpaEligible: false,
+        feedback: `Nilai rata-rata rapor Anda (${overallGpa}) berada di bawah syarat batas minimal YTB untuk jurusan ini (${minGpa}.0). Sangat berisiko gugur di seleksi berkas TBBS.`,
+      };
+    }
+
+    // Base probability from GPA
+    let score = 55;
+    if (overallGpa >= 92) score = 86;
+    else if (overallGpa >= 88) score = 78;
+    else if (overallGpa >= 84) score = 70;
+    else if (overallGpa >= 80) score = 62;
+
+    // Adjust for Tier
+    if (choice.tier.includes('Tier 1')) {
+      score -= 14; // very high international competition
+    } else if (choice.tier.includes('Tier 2')) {
+      score -= 4;
+    } else {
+      score += 12; // Tier 3 outside big 3: favored by selection committee
+    }
+
+    // Language cert check for 100% English programs
+    let langNote = '';
+    if (choice.languageOfInstruction.includes('100% Bahasa Inggris')) {
+      if (hasEnglishCert) {
+        score += 8;
+        langNote = 'Sertifikat bahasa Inggris tersedia (+8).';
+      } else {
+        score -= 16;
+        langNote = 'Perhatian: Prodi 100% Inggris tanpa sertifikat TOEFL/IELTS resmi mengurangi peluang lolos.';
+      }
+    } else if (choice.languageOfInstruction.includes('Bahasa Turki')) {
+      score += 6; // Free TÖMER 1 year granted automatically
+      langNote = 'Prodi Bahasa Turki: Tidak wajib sertifikat awal, otomatis mendapat beasiswa kursus TÖMER 1 tahun gratis di Turki.';
+    }
+
+    if (hasAwards) {
+      score += 6;
+    }
+
+    const finalProb = Math.min(96, Math.max(15, Math.round(score)));
+
+    let statusZone: 'Sangat Aman (Peluang Tinggi)' | 'Kompetitif (Target Realistis)' | 'Ketat (Ambitious / Tier 1)' | 'Di Bawah Batas Syarat (Under Min GPA)';
+    if (finalProb >= 82) {
+      statusZone = 'Sangat Aman (Peluang Tinggi)';
+    } else if (finalProb >= 68) {
+      statusZone = 'Kompetitif (Target Realistis)';
+    } else {
+      statusZone = 'Ketat (Ambitious / Tier 1)';
+    }
+
+    return {
+      choice,
+      probability: finalProb,
+      statusZone,
+      isGpaEligible: true,
+      feedback: `${choice.tier.split(' - ')[0]} di ${choice.city}. ${langNote}`,
+    };
+  });
+
+  // Calculate overall portfolio chance
+  let portfolioChance = 0;
+  if (evaluatedChoices.length === 0) {
+    portfolioChance = 0;
+  } else {
+    // Probability of at least one acceptance
+    const failureProduct = evaluatedChoices.reduce((acc, curr) => acc * (1 - curr.probability / 100), 1);
+    let combined = Math.round((1 - failureProduct) * 100);
+    if (!isCityRuleCompliant) {
+      combined = Math.round(combined * 0.7); // penalty for non-compliance
+    }
+    portfolioChance = Math.min(96, Math.max(10, combined));
+  }
+
+  let verdict = '';
+  if (portfolioChance >= 88) {
+    verdict = 'Portofolio Pilihan Sangat Kuat & Seimbang (Peluang Kelolosan Tertinggi)';
+  } else if (portfolioChance >= 75) {
+    verdict = 'Portofolio Kompetitif & Realistis (Peluang Lolos Baik)';
+  } else if (portfolioChance >= 50) {
+    verdict = 'Portofolio Cukup (Perlu Penyeimbangan Kampus / Booster Berkas)';
+  } else {
+    verdict = 'Portofolio Rentan / Terlalu Spekulatif';
+  }
+
+  const tips: string[] = [];
+  if (!isCityRuleCompliant) {
+    tips.push('Tambahkan 2–3 pilihan kampus di luar Istanbul, Ankara, dan Izmir (misal: Bursa Uludağ, Anadolu Eskişehir, atau Selçuk Konya).');
+  }
+  const hasTier1 = evaluatedChoices.some(c => c.choice.tier.includes('Tier 1'));
+  const hasTier3 = evaluatedChoices.some(c => c.choice.tier.includes('Tier 3'));
+  if (hasTier1 && !hasTier3) {
+    tips.push('Pilihan Anda didominasi kampus Tier 1. Tambahkan minimal 2 universitas Tier 3 untuk mengamankan kursi beasiswa.');
+  }
+  if (!hasEnglishCert && choices.some(c => c.languageOfInstruction.includes('100% Bahasa Inggris'))) {
+    tips.push('Sebagian pilihan berpengantar 100% Inggris: Pertimbangkan memilih versi bahasa Turki atau segera persiapkan tes TOEFL/IELTS/DET.');
+  }
+  if (tips.length === 0) {
+    tips.push('Susunan pilihan Anda sudah memenuhi kaidah diversifikasi TBBS: impian di urutan atas, realistis di tengah, dan kampus aman luar 3 kota di urutan penutup.');
+  }
+
+  return {
+    totalChoices: total,
+    bigThreeCount,
+    outsideBigThreeCount,
+    outsideRatioPercentage,
+    isCityRuleCompliant,
+    cityRuleMessage,
+    evaluatedChoices,
+    overallPortfolioChance: portfolioChance,
+    portfolioVerdict: verdict,
+    strategicTips: tips,
   };
 }

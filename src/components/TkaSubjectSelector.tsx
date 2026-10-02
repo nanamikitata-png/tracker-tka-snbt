@@ -6,12 +6,14 @@ interface TkaSubjectSelectorProps {
   config: TkaConfig;
   currentTheme: PaletteTheme;
   onUpdateConfig: (newConfig: TkaConfig) => void;
+  onNavigateToQuiz?: () => void;
 }
 
 export const TkaSubjectSelector: React.FC<TkaSubjectSelectorProps> = ({
   config,
   currentTheme,
   onUpdateConfig,
+  onNavigateToQuiz,
 }) => {
   const allElectives: { id: TkaElectiveSubject; label: string; group: 'Saintek' | 'Soshum' | 'Lanjutan' }[] = [
     { id: 'Fisika', label: 'Fisika', group: 'Saintek' },
@@ -62,11 +64,24 @@ export const TkaSubjectSelector: React.FC<TkaSubjectSelectorProps> = ({
           </h3>
         </div>
 
-        <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
-          <span>Mapel Terpilih:</span>
-          <span className="font-bold text-slate-900">
-            {config.mandatorySubjects.length} Wajib + {config.electiveSubjects.length} Pilihan
-          </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+            <span>Mapel Terpilih:</span>
+            <span className="font-bold text-slate-900">
+              {config.mandatorySubjects.length} Wajib + {config.electiveSubjects.length} Pilihan
+            </span>
+          </div>
+
+          {onNavigateToQuiz && (
+            <button
+              type="button"
+              onClick={onNavigateToQuiz}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white shadow-xs hover:opacity-90 transition-all cursor-pointer flex items-center gap-1.5"
+              style={{ backgroundColor: currentTheme.primary }}
+            >
+              <span>Latihan Soal Per-Mapel →</span>
+            </button>
+          )}
         </div>
       </div>
 

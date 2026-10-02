@@ -27,17 +27,39 @@ import {
   Info,
   X,
   Layers,
+  Target,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
+  CheckCheck,
 } from 'lucide-react';
-import { UniversityTarget, PaletteTheme, YtbPreferences, RaporData, SemesterRapor } from '../types';
+import {
+  UniversityTarget,
+  PaletteTheme,
+  YtbPreferences,
+  RaporData,
+  SemesterRapor,
+  YtbChoice,
+} from '../types';
 import {
   YTB_REQUIRED_DOCUMENTS,
   YTB_UNIVERSITY_CLUSTERS,
   YTB_SAMPLE_ESSAYS,
   AVAILABLE_ELECTIVE_SUBJECTS,
   calculateYtbProbability,
+  YTB_PRESET_UNIVERSITIES,
+  evaluateYtbChoiceStrategy,
+  YtbPresetUniversity,
 } from '../data/ytbGuideData';
 import { getExamCountdowns } from '../utils/countdown';
-import { loadRaporData, saveRaporData, DEFAULT_RAPOR_DATA } from '../utils/storage';
+import {
+  loadRaporData,
+  saveRaporData,
+  DEFAULT_RAPOR_DATA,
+  loadYtbChoices,
+  saveYtbChoices,
+  DEFAULT_YTB_CHOICES,
+} from '../utils/storage';
 
 interface TurkeyBurslariHubProps {
   targets: UniversityTarget[];
@@ -58,7 +80,7 @@ export const TurkeyBurslariHub: React.FC<TurkeyBurslariHubProps> = ({
   onSelectActiveTarget,
   onToggleChecklistItem,
 }) => {
-  const [subTab, setSubTab] = useState<'rapor-calculator' | 'documents' | 'universities' | 'essay-guide' | 'essay-samples'>('rapor-calculator');
+  const [subTab, setSubTab] = useState<'rapor-calculator' | 'ytb-choices' | 'universities' | 'documents' | 'essay-guide' | 'essay-samples'>('rapor-calculator');
   const [activeEssayIndex, setActiveEssayIndex] = useState<number>(0);
   const countdowns = getExamCountdowns();
 
@@ -68,15 +90,33 @@ export const TurkeyBurslariHub: React.FC<TurkeyBurslariHubProps> = ({
   const [customElectiveInput, setCustomElectiveInput] = useState<string>('');
   const [electiveFilterCategory, setElectiveFilterCategory] = useState<string>('Semua');
 
+  // YTB Choices (Pilihan 1-12 TBBS) State
+  const [ytbChoices, setYtbChoices] = useState<YtbChoice[]>(loadYtbChoices());
+  const [isChoiceModalOpen, setIsChoiceModalOpen] = useState<boolean>(false);
+  const [editingChoiceId, setEditingChoiceId] = useState<string | null>(null);
+
+  // Form State for Choice Modal
+  const [formUnivName, setFormUnivName] = useState<string>('Boğaziçi Üniversitesi');
+  const [formCity, setFormCity] = useState<string>('Istanbul');
+  const [formIsTopThree, setFormIsTopThree] = useState<boolean>(true);
+  const [formTier, setFormTier] = useState<'Tier 1 - Kampus Elit Global' | 'Tier 2 - Universitas Negeri Utama' | 'Tier 3 - Kampus Kunci Luar 3 Kota'>('Tier 1 - Kampus Elit Global');
+  const [formMajorName, setFormMajorName] = useState<string>('Computer Engineering (Teknik Komputer)');
+  const [formLang, setFormLang] = useState<'100% Bahasa Inggris' | 'Bahasa Turki (dengan TÖMER 1 Thn Gratis)' | 'Campuran (Inggris & Turki)'>('100% Bahasa Inggris');
+  const [formMinGpa, setFormMinGpa] = useState<number>(70);
+  const [formNotes, setFormNotes] = useState<string>('');
+
+  const updateAndSaveChoices = (newChoices: YtbChoice[]) => {
+    const reindexed = newChoices.map((c, idx) => ({ ...c, order: idx + 1 }));
+    setYtbChoices(reindexed);
+    saveYtbChoices(reindexed);
+  };
+
   const updateAndSaveRapor = (newData: RaporData) => {
     setRaporData(newData);
     saveRaporData(newData);
   };
 
   const [hasLoIReady, setHasLoIReady] = useState<boolean>(true);
-  const [cityRuleCompliant, setCityRuleCompliant] = useState<boolean>(
-    ytbPreferences.preferredCitiesChoice === 'Kombinasi Seimbang (Sesuai Aturan YTB)'
-  );
 
   // Compute average of all semester averages
   const overallGpa = +(
@@ -84,7 +124,17 @@ export const TurkeyBurslariHub: React.FC<TurkeyBurslariHubProps> = ({
     raporData.semesters.length
   ).toFixed(1);
 
-  // Compute acceptance probability taking into account Kurikulum Merdeka electives
+  // Evaluate Choice Strategy based on chosen universities & majors
+  const choiceStrategyAssessment = evaluateYtbChoiceStrategy(
+    ytbChoices,
+    overallGpa,
+    raporData.hasEnglishCert,
+    raporData.hasOlympOrAwards
+  );
+
+  const cityRuleCompliant = choiceStrategyAssessment.isCityRuleCompliant;
+
+  // Compute general acceptance probability taking into account Kurikulum Merdeka electives
   const probabilityAnalysis = calculateYtbProbability(
     overallGpa,
     raporData.hasEnglishCert,
@@ -94,6 +144,105 @@ export const TurkeyBurslariHub: React.FC<TurkeyBurslariHubProps> = ({
     ytbPreferences.targetMajorCluster,
     raporData.chosenElectives
   );
+
+  const handleOpenAddChoiceModal = () => {
+    const defaultPreset = YTB_PRESET_UNIVERSITIES[0];
+    setEditingChoiceId(null);
+    setFormUnivName(defaultPreset.name);
+    setFormCity(defaultPreset.city);
+    setFormIsTopThree(defaultPreset.isTopThreeCities);
+    setFormTier(defaultPreset.tier);
+    setFormMajorName(defaultPreset.majors[0].name);
+    setFormLang(defaultPreset.majors[0].language);
+    setFormMinGpa(defaultPreset.majors[0].minGpa);
+    setFormNotes('');
+    setIsChoiceModalOpen(true);
+  };
+
+  const handleOpenEditChoiceModal = (choice: YtbChoice) => {
+    setEditingChoiceId(choice.id);
+    setFormUnivName(choice.universityName);
+    setFormCity(choice.city);
+    setFormIsTopThree(choice.isTopThreeCities);
+    setFormTier(choice.tier);
+    setFormMajorName(choice.majorName);
+    setFormLang(choice.languageOfInstruction);
+    setFormMinGpa(choice.minGpaRequired);
+    setFormNotes(choice.notes || '');
+    setIsChoiceModalOpen(true);
+  };
+
+  const handleSaveChoiceModal = () => {
+    if (!formUnivName.trim() || !formMajorName.trim()) return;
+
+    if (editingChoiceId) {
+      const updated = ytbChoices.map((c) =>
+        c.id === editingChoiceId
+          ? {
+              ...c,
+              universityName: formUnivName.trim(),
+              majorName: formMajorName.trim(),
+              city: formCity.trim(),
+              isTopThreeCities: formIsTopThree,
+              languageOfInstruction: formLang,
+              tier: formTier,
+              minGpaRequired: formMinGpa,
+              notes: formNotes.trim(),
+            }
+          : c
+      );
+      updateAndSaveChoices(updated);
+    } else {
+      if (ytbChoices.length >= 12) {
+        alert('Maksimal pilihan di portal TBBS adalah 12 universitas & jurusan.');
+        return;
+      }
+      const newChoice: YtbChoice = {
+        id: `ytb-ch-${Date.now()}`,
+        order: ytbChoices.length + 1,
+        universityName: formUnivName.trim(),
+        majorName: formMajorName.trim(),
+        city: formCity.trim(),
+        isTopThreeCities: formIsTopThree,
+        languageOfInstruction: formLang,
+        tier: formTier,
+        minGpaRequired: formMinGpa,
+        notes: formNotes.trim(),
+      };
+      updateAndSaveChoices([...ytbChoices, newChoice]);
+    }
+    setIsChoiceModalOpen(false);
+  };
+
+  const handleRemoveChoice = (id: string) => {
+    updateAndSaveChoices(ytbChoices.filter((c) => c.id !== id));
+  };
+
+  const handleMoveChoice = (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= ytbChoices.length) return;
+    const copy = [...ytbChoices];
+    const temp = copy[index];
+    copy[index] = copy[targetIndex];
+    copy[targetIndex] = temp;
+    updateAndSaveChoices(copy);
+  };
+
+  const handleAutoSortStrategy = () => {
+    const copy = [...ytbChoices].sort((a, b) => {
+      const rank = (tier: string) => {
+        if (tier.includes('Tier 1')) return 1;
+        if (tier.includes('Tier 2')) return 2;
+        return 3;
+      };
+      return rank(a.tier) - rank(b.tier);
+    });
+    updateAndSaveChoices(copy);
+  };
+
+  const handleResetToDefaultChoices = () => {
+    updateAndSaveChoices(DEFAULT_YTB_CHOICES);
+  };
 
   // Handler for Kelas 10 (Semester 1 & 2): IPA & IPS Terpadu
   const handleUpdateKelas10Score = (
@@ -359,7 +508,22 @@ export const TurkeyBurslariHub: React.FC<TurkeyBurslariHubProps> = ({
           }`}
         >
           <Calculator className="w-3.5 h-3.5 text-indigo-600" />
-          <span>Kalkulator Rapor &amp; Prediksi Lolos</span>
+          <span>Kalkulator Rapor &amp; Profil Akademik</span>
+        </button>
+
+        <button
+          onClick={() => setSubTab('ytb-choices')}
+          className={`px-3.5 py-2 rounded-lg transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+            subTab === 'ytb-choices'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Target className="w-3.5 h-3.5 text-rose-600" />
+          <span>Pilihan 1–12 Kampus &amp; Jurusan (Tercih TBBS)</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-800 font-mono font-bold">
+            {ytbChoices.length}/12
+          </span>
         </button>
 
         <button
@@ -383,7 +547,7 @@ export const TurkeyBurslariHub: React.FC<TurkeyBurslariHubProps> = ({
           }`}
         >
           <Building2 className="w-3.5 h-3.5 text-sky-600" />
-          <span>Aturan Pemilihan Kampus &amp; Jurusan TBBS</span>
+          <span>Katalog &amp; Profil Kampus Turki</span>
         </button>
 
         <button
@@ -478,6 +642,36 @@ export const TurkeyBurslariHub: React.FC<TurkeyBurslariHubProps> = ({
                 </ul>
               </div>
             </div>
+          </div>
+
+          {/* Bridge: Penjelasan Peluang Beasiswa vs Target Kampus & Jurusan */}
+          <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-50 via-sky-50 to-rose-50 border border-indigo-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-indigo-600 text-white shrink-0 mt-0.5 shadow-xs">
+                <Target className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <div className="font-bold text-slate-900 text-sm flex flex-wrap items-center gap-2">
+                  <span>Apakah Persentase di Atas Sudah Menyertakan Kampus &amp; Jurusan?</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-bold">
+                    Profil Kelayakan Umum
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">
+                  Skor di atas adalah <strong>Evaluasi Kesiapan Akademik Umum</strong> Anda. Pada sistem resmi Türkiye Bursları (portal TBBS), penerimaan beasiswa <strong>selalu terikat langsung dengan pilihan 1 s/d 12 universitas &amp; jurusan</strong> yang Anda tentukan! Peluang di kampus Tier 1 (Boğaziçi/METU) tentu berbeda jauh dengan Tier 3 (Bursa Uludağ/Akdeniz), serta wajib memenuhi <em>Aturan Geografi 3 Kota Besar</em>.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSubTab('ytb-choices')}
+              className="px-4 py-2.5 rounded-xl font-bold text-xs text-white shadow-sm flex items-center gap-1.5 shrink-0 hover:opacity-90 transition-all cursor-pointer"
+              style={{ backgroundColor: currentTheme.primary }}
+            >
+              <span>Atur 1–12 Kampus &amp; Jurusan</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Form Input Rapor Semester 1 - 5 Kurikulum Merdeka */}
@@ -838,20 +1032,374 @@ export const TurkeyBurslariHub: React.FC<TurkeyBurslariHubProps> = ({
                 </div>
               </label>
 
-              <label className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-start gap-2.5 cursor-pointer hover:bg-slate-100">
-                <input
-                  type="checkbox"
-                  checked={cityRuleCompliant}
-                  onChange={(e) => setCityRuleCompliant(e.target.checked)}
-                  className="mt-0.5 rounded text-indigo-600"
-                />
-                <div>
-                  <div className="font-bold text-slate-900">Aturan Kota YTB</div>
-                  <div className="text-slate-500 text-[11px]">Min. 2-3 Kampus Luar 3 Kota Besar</div>
+              <div
+                onClick={() => setSubTab('ytb-choices')}
+                className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-colors ${
+                  cityRuleCompliant
+                    ? 'border-emerald-200 bg-emerald-50/60 hover:bg-emerald-100/60 text-emerald-950'
+                    : 'border-amber-200 bg-amber-50/60 hover:bg-amber-100/60 text-amber-950'
+                }`}
+                title="Klik untuk membuka dan mengatur daftar 12 pilihan kampus TBBS"
+              >
+                <div className="mt-0.5">
+                  {cityRuleCompliant ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                  )}
                 </div>
-              </label>
+                <div>
+                  <div className="font-bold text-xs flex items-center gap-1.5">
+                    <span>Aturan Kota TBBS</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-bold ${
+                      cityRuleCompliant ? 'bg-emerald-200/80 text-emerald-900' : 'bg-amber-200/80 text-amber-900'
+                    }`}>
+                      {cityRuleCompliant ? 'Terpenuhi ✅' : 'Perlu Diatur ⚠️'}
+                    </span>
+                  </div>
+                  <div className="text-[11px] opacity-80">
+                    {choiceStrategyAssessment.outsideBigThreeCount} di luar 3 kota · Atur di tab Tercih →
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* VIEW BARU: SIMULASI & STRATEGI 12 TERCIH KAMPUS & JURUSAN YTB */}
+      {subTab === 'ytb-choices' && (
+        <div className="space-y-6">
+          {/* Header Card */}
+          <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded text-[11px] font-bold text-white uppercase tracking-wider bg-rose-600">
+                    Sistem TBBS Resmi
+                  </span>
+                  <span className="text-xs font-semibold text-slate-500">
+                    Daftar 1 s/d 12 Tercih Universitas &amp; Program Studi
+                  </span>
+                </div>
+                <h3 className="text-xl font-extrabold text-slate-900 font-['Outfit'] mt-1">
+                  Simulasi 12 Pilihan Kampus &amp; Jurusan (Türkiye Bursları)
+                </h3>
+                <p className="text-xs text-slate-600 mt-1 max-w-3xl leading-relaxed">
+                  Penerimaan beasiswa Türkiye Bursları <strong>tidak berdiri sendiri</strong>, melainkan terikat langsung pada pilihan prodi Anda di portal TBBS. Sistem mengevaluasi kelayakan rapor Anda ({overallGpa}/100) terhadap ambang batas jurusan (Kedokteran min. 90.0, Teknik/Sains min. 70.0), kasta kampus (Tier 1 vs Tier 3), dan kepatuhan terhadap <strong>Aturan Geografi 3 Kota Besar</strong>.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleAutoSortStrategy}
+                  className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="Urutkan pilihan secara strategis: Impian (Tier 1) di atas, Realistis (Tier 2) di tengah, Aman luar 3 kota (Tier 3) di penutup"
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Urutkan Strategi</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleResetToDefaultChoices}
+                  className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-600 flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="Kembalikan ke preset rekomendasi 6 pilihan seimbang"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Preset Standar</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenAddChoiceModal}
+                  disabled={ytbChoices.length >= 12}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold text-white shadow-sm flex items-center gap-1.5 transition-all ${
+                    ytbChoices.length >= 12
+                      ? 'bg-slate-400 cursor-not-allowed'
+                      : 'hover:opacity-90 cursor-pointer'
+                  }`}
+                  style={{ backgroundColor: ytbChoices.length >= 12 ? undefined : currentTheme.primary }}
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Tambah Pilihan ({ytbChoices.length}/12)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* TBBS Metric & Rules Bar */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+              {/* Box 1: Aturan Geografi 3 Kota Besar */}
+              <div className={`p-4 rounded-xl border text-xs space-y-2 ${
+                choiceStrategyAssessment.isCityRuleCompliant
+                  ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                  : 'bg-amber-50/80 border-amber-300 text-amber-950'
+              }`}>
+                <div className="flex items-center justify-between font-bold">
+                  <span className="flex items-center gap-1.5">
+                    {choiceStrategyAssessment.isCityRuleCompliant ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    )}
+                    Aturan Geografi TBBS:
+                  </span>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-white font-bold">
+                    {choiceStrategyAssessment.outsideBigThreeCount} / {choiceStrategyAssessment.totalChoices} Luar 3 Kota ({choiceStrategyAssessment.outsideRatioPercentage}%)
+                  </span>
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  {choiceStrategyAssessment.cityRuleMessage}
+                </p>
+                <div className="w-full bg-slate-200/80 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className={`h-1.5 rounded-full transition-all ${
+                      choiceStrategyAssessment.isCityRuleCompliant ? 'bg-emerald-500' : 'bg-amber-500'
+                    }`}
+                    style={{ width: `${Math.min(100, choiceStrategyAssessment.outsideRatioPercentage)}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Box 2: Peluang Kelolosan Portofolio Keseluruhan */}
+              <div 
+                className="p-4 rounded-xl border text-xs space-y-1.5"
+                style={{
+                  backgroundColor: currentTheme.bgTint,
+                  borderColor: `${currentTheme.primary}40`,
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800">Peluang Lolos Portofolio:</span>
+                  <span className="text-xl font-extrabold font-mono text-slate-900" style={{ color: currentTheme.primary }}>
+                    {choiceStrategyAssessment.overallPortfolioChance}%
+                  </span>
+                </div>
+                <div className="text-[11px] font-semibold text-slate-700">
+                  {choiceStrategyAssessment.portfolioVerdict}
+                </div>
+                <p className="text-[10px] text-slate-500">
+                  Kombinasi prodi impian (Tier 1) dan kampus aman di luar 3 kota memastikan Anda tetap memiliki pintu kelulusan terbuka.
+                </p>
+              </div>
+
+              {/* Box 3: Tips & Saran Strategis */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1.5">
+                <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-indigo-600" />
+                  Rekomendasi Panel Reviewer:
+                </div>
+                <ul className="text-[11px] text-slate-600 space-y-1 list-disc list-inside">
+                  {choiceStrategyAssessment.strategicTips.slice(0, 2).map((tip, idx) => (
+                    <li key={idx}>{tip}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Choice Cards List */}
+          <div className="space-y-3">
+            {choiceStrategyAssessment.evaluatedChoices.map((item, idx) => {
+              const { choice, probability, statusZone, isGpaEligible, feedback } = item;
+              const isFirst = idx === 0;
+              const isLast = idx === choiceStrategyAssessment.evaluatedChoices.length - 1;
+
+              return (
+                <div
+                  key={choice.id}
+                  className={`p-5 rounded-2xl border transition-all ${
+                    !isGpaEligible
+                      ? 'border-rose-300 bg-rose-50/40'
+                      : choice.tier.includes('Tier 3')
+                      ? 'border-emerald-200/90 bg-emerald-50/20 hover:bg-emerald-50/30'
+                      : 'border-slate-200 bg-white hover:bg-slate-50/70 shadow-xs'
+                  }`}
+                >
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    {/* Choice Information */}
+                    <div className="space-y-2 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className="w-7 h-7 rounded-lg flex items-center justify-center font-mono font-extrabold text-xs text-white shadow-xs shrink-0"
+                          style={{
+                            backgroundColor: choice.tier.includes('Tier 1')
+                              ? '#4f46e5'
+                              : choice.tier.includes('Tier 2')
+                              ? '#0284c7'
+                              : '#059669',
+                          }}
+                        >
+                          #{choice.order}
+                        </span>
+
+                        <h4 className="font-bold text-slate-900 text-base">
+                          {choice.universityName}
+                        </h4>
+
+                        {/* City Tag */}
+                        <span
+                          className={`text-[11px] font-semibold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                            choice.isTopThreeCities
+                              ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                              : 'bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold'
+                          }`}
+                        >
+                          <MapPin className="w-3 h-3" />
+                          {choice.city} {choice.isTopThreeCities ? '(3 Kota Besar)' : '(Luar 3 Kota Besar ✅)'}
+                        </span>
+
+                        {/* Tier Tag */}
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                          {choice.tier.split(' - ')[0]}
+                        </span>
+                      </div>
+
+                      {/* Major, Language, and Min GPA */}
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="font-extrabold text-slate-800 font-['Outfit']">
+                          {choice.majorName}
+                        </span>
+
+                        <span className="text-slate-300">·</span>
+
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${
+                          choice.languageOfInstruction.includes('100% Bahasa Inggris')
+                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                            : 'bg-amber-50 text-amber-800 border border-amber-200'
+                        }`}>
+                          {choice.languageOfInstruction}
+                        </span>
+
+                        <span className="text-slate-300">·</span>
+
+                        <span className={`text-[11px] font-mono px-2 py-0.5 rounded ${
+                          choice.minGpaRequired >= 90
+                            ? 'bg-rose-100 text-rose-800 font-bold'
+                            : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          Min. Rapor YTB: {choice.minGpaRequired}.0
+                        </span>
+                      </div>
+
+                      {choice.notes && (
+                        <p className="text-xs text-slate-500 italic">
+                          "{choice.notes}"
+                        </p>
+                      )}
+
+                      {/* Feedback from Evaluator */}
+                      <div className={`p-2.5 rounded-xl text-xs flex items-start gap-2 ${
+                        !isGpaEligible
+                          ? 'bg-rose-100/80 text-rose-950 border border-rose-200 font-medium'
+                          : 'bg-slate-50 text-slate-700 border border-slate-100'
+                      }`}>
+                        <Info className={`w-4 h-4 shrink-0 mt-0.5 ${!isGpaEligible ? 'text-rose-600' : 'text-indigo-600'}`} />
+                        <span>{feedback}</span>
+                      </div>
+                    </div>
+
+                    {/* Probability & Actions Box */}
+                    <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between gap-3 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
+                      {/* Probability Gauge */}
+                      <div className="text-right">
+                        <div className="text-[10px] uppercase font-bold text-slate-400">
+                          Peluang Pilihan Ini
+                        </div>
+                        <div className="flex items-center gap-2 justify-end mt-0.5">
+                          <span
+                            className={`text-2xl font-extrabold font-mono tabular-nums ${
+                              !isGpaEligible
+                                ? 'text-rose-600'
+                                : probability >= 82
+                                ? 'text-emerald-600'
+                                : probability >= 68
+                                ? 'text-indigo-600'
+                                : 'text-amber-600'
+                            }`}
+                          >
+                            {probability}%
+                          </span>
+                        </div>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded inline-block mt-0.5 ${
+                            !isGpaEligible
+                              ? 'bg-rose-100 text-rose-800'
+                              : probability >= 82
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : probability >= 68
+                              ? 'bg-indigo-100 text-indigo-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {statusZone}
+                        </span>
+                      </div>
+
+                      {/* Reorder and Edit Actions */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleMoveChoice(idx, 'up')}
+                          disabled={isFirst}
+                          className={`p-1.5 rounded-lg border border-slate-200 transition-colors ${
+                            isFirst ? 'opacity-30 cursor-not-allowed bg-slate-50' : 'hover:bg-slate-100 cursor-pointer bg-white'
+                          }`}
+                          title="Geser Prioritas Naik"
+                        >
+                          <ChevronUp className="w-4 h-4 text-slate-600" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleMoveChoice(idx, 'down')}
+                          disabled={isLast}
+                          className={`p-1.5 rounded-lg border border-slate-200 transition-colors ${
+                            isLast ? 'opacity-30 cursor-not-allowed bg-slate-50' : 'hover:bg-slate-100 cursor-pointer bg-white'
+                          }`}
+                          title="Geser Prioritas Turun"
+                        >
+                          <ChevronDown className="w-4 h-4 text-slate-600" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditChoiceModal(choice)}
+                          className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer bg-white text-slate-600"
+                          title="Edit Pilihan"
+                        >
+                          <Settings2 className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveChoice(choice.id)}
+                          className="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer bg-white text-rose-600"
+                          title="Hapus Pilihan"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Add Choice Bottom Banner */}
+          {ytbChoices.length < 12 && (
+            <button
+              type="button"
+              onClick={handleOpenAddChoiceModal}
+              className="w-full py-4 border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/40 transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Tambah Pilihan Kampus #{ytbChoices.length + 1} (Tersisa {12 - ytbChoices.length} Pilihan Lagi)</span>
+            </button>
+          )}
         </div>
       )}
 
@@ -1225,6 +1773,229 @@ export const TurkeyBurslariHub: React.FC<TurkeyBurslariHubProps> = ({
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL TAMBAH / EDIT PILIHAN KAMPUS TBBS (YTB CHOICE) */}
+      {isChoiceModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+              <div className="flex items-center gap-2">
+                <Target className="w-5 h-5 text-indigo-600" />
+                <h3 className="font-bold text-slate-900 text-sm font-['Outfit']">
+                  {editingChoiceId ? 'Edit Pilihan Kampus TBBS' : `Tambah Pilihan Kampus #${ytbChoices.length + 1} (Maks 12)`}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsChoiceModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+              {/* Preset Selector */}
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-700">
+                  Pilih Cepat dari Preset Universitas Ternama di Turki:
+                </label>
+                <select
+                  onChange={(e) => {
+                    const preset = YTB_PRESET_UNIVERSITIES.find((p) => p.name === e.target.value);
+                    if (preset) {
+                      setFormUnivName(preset.name);
+                      setFormCity(preset.city);
+                      setFormIsTopThree(preset.isTopThreeCities);
+                      setFormTier(preset.tier);
+                      setFormMajorName(preset.majors[0].name);
+                      setFormLang(preset.majors[0].language);
+                      setFormMinGpa(preset.majors[0].minGpa);
+                    }
+                  }}
+                  value={formUnivName}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium cursor-pointer"
+                >
+                  <optgroup label="Tier 1 - Kampus Elit Global (Sangat Selektif)">
+                    {YTB_PRESET_UNIVERSITIES.filter((u) => u.tier.includes('Tier 1')).map((u) => (
+                      <option key={u.name} value={u.name}>
+                        {u.name} ({u.city})
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Tier 2 - Universitas Negeri Utama di Kota Besar">
+                    {YTB_PRESET_UNIVERSITIES.filter((u) => u.tier.includes('Tier 2')).map((u) => (
+                      <option key={u.name} value={u.name}>
+                        {u.name} ({u.city})
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Tier 3 - Kampus Kunci Lolos Luar 3 Kota (Sesuai Aturan TBBS)">
+                    {YTB_PRESET_UNIVERSITIES.filter((u) => u.tier.includes('Tier 3')).map((u) => (
+                      <option key={u.name} value={u.name}>
+                        {u.name} ({u.city} - Luar 3 Kota ✅)
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+                <p className="text-[11px] text-slate-500">
+                  Memilih preset otomatis mengatur nama kampus, kota, kasta tier, dan daftar prodi populer.
+                </p>
+              </div>
+
+              {/* Major Selector */}
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-700">
+                  Program Studi / Jurusan:
+                </label>
+                {/* Check if current univ has preset majors */}
+                {(() => {
+                  const currentPreset = YTB_PRESET_UNIVERSITIES.find((u) => u.name === formUnivName);
+                  if (currentPreset) {
+                    return (
+                      <div className="space-y-2">
+                        <select
+                          value={formMajorName}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setFormMajorName(val);
+                            const matchedMajor = currentPreset.majors.find((m) => m.name === val);
+                            if (matchedMajor) {
+                              setFormLang(matchedMajor.language);
+                              setFormMinGpa(matchedMajor.minGpa);
+                            }
+                          }}
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium cursor-pointer"
+                        >
+                          {currentPreset.majors.map((m) => (
+                            <option key={m.name} value={m.name}>
+                              {m.name} ({m.language})
+                            </option>
+                          ))}
+                          <option value="CUSTOM">-- Ketik Jurusan Lainnya --</option>
+                        </select>
+
+                        {formMajorName === 'CUSTOM' && (
+                          <input
+                            type="text"
+                            placeholder="Ketik nama jurusan impian Anda..."
+                            onChange={(e) => setFormMajorName(e.target.value)}
+                            className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        )}
+                      </div>
+                    );
+                  }
+                  return (
+                    <input
+                      type="text"
+                      value={formMajorName}
+                      onChange={(e) => setFormMajorName(e.target.value)}
+                      placeholder="Contoh: Computer Engineering / Kedokteran"
+                      className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                    />
+                  );
+                })()}
+              </div>
+
+              {/* City and Big 3 Flag */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block font-semibold text-slate-700">Kota Lokasi:</label>
+                  <input
+                    type="text"
+                    value={formCity}
+                    onChange={(e) => {
+                      const c = e.target.value;
+                      setFormCity(c);
+                      const isBig3 = ['istanbul', 'ankara', 'izmir'].includes(c.toLowerCase().trim());
+                      setFormIsTopThree(isBig3);
+                    }}
+                    placeholder="Contoh: Bursa / Istanbul"
+                    className="w-full p-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block font-semibold text-slate-700">Status Aturan Geografi:</label>
+                  <div className={`p-2 rounded-xl border text-[11px] font-semibold flex items-center gap-1.5 ${
+                    formIsTopThree ? 'bg-slate-100 text-slate-700 border-slate-200' : 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'
+                  }`}>
+                    {formIsTopThree ? '3 Kota Besar (Istanbul/Ankara/Izmir)' : 'Luar 3 Kota Besar (Aman TBBS ✅)'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Language of Instruction */}
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-700">
+                  Bahasa Pengantar Perkuliahan:
+                </label>
+                <select
+                  value={formLang}
+                  onChange={(e) => setFormLang(e.target.value as any)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="100% Bahasa Inggris">100% Bahasa Inggris (Wajib Sertifikat TOEFL/IELTS/DET)</option>
+                  <option value="Bahasa Turki (dengan TÖMER 1 Thn Gratis)">Bahasa Turki (Otomatis Beasiswa Kursus TÖMER 1 Tahun Gratis)</option>
+                  <option value="Campuran (Inggris & Turki)">Campuran (30% Inggris + 70% Turki)</option>
+                </select>
+              </div>
+
+              {/* Minimum GPA Requirement Notice */}
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-700">Batas Minimal Nilai Rapor Resmi YTB:</span>
+                  <span className={`font-mono font-bold px-2 py-0.5 rounded text-xs ${
+                    formMinGpa >= 90 ? 'bg-rose-100 text-rose-800' : 'bg-slate-200 text-slate-800'
+                  }`}>
+                    {formMinGpa}.0 / 100
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {formMinGpa >= 90
+                    ? 'Jurusan rumpun Kesehatan/Kedokteran memiliki syarat mutlak minimal 90.0 di portal TBBS.'
+                    : 'Jurusan Teknik, Sains, dan Sosial memiliki syarat minimal 70.0 (disarankan > 82).'}
+                </p>
+              </div>
+
+              {/* Personal Notes */}
+              <div className="space-y-1">
+                <label className="block font-semibold text-slate-700">Catatan Personal / Alasan Memilih:</label>
+                <input
+                  type="text"
+                  value={formNotes}
+                  onChange={(e) => setFormNotes(e.target.value)}
+                  placeholder="Contoh: Kampus impian utama, dosen pembimbing kuat di bidang AI"
+                  className="w-full p-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50/60">
+              <button
+                type="button"
+                onClick={() => setIsChoiceModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200/70 transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveChoiceModal}
+                disabled={!formUnivName.trim() || !formMajorName.trim()}
+                className="px-5 py-2 rounded-xl text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all cursor-pointer disabled:opacity-50"
+                style={{ backgroundColor: currentTheme.primary }}
+              >
+                {editingChoiceId ? 'Simpan Perubahan' : 'Tambahkan ke Daftar Tercih'}
+              </button>
             </div>
           </div>
         </div>
