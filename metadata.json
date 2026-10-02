@@ -1,0 +1,6 @@
+{
+  "name": "StudiKuasai - Tracker TKA, SNBT & Türkiye Bursları",
+  "description": "Website tracker progres belajar personal siswa kelas 12 untuk persiapan TKA, SNBT, dan beasiswa Türkiye Bursları dengan analitik penguasaan materi, rekap tryout, palette generator, evaluasi jurnal, kuis kilat harian berimbang, dan streak motivasi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
