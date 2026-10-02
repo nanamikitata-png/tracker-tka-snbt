@@ -9,6 +9,7 @@ import {
   TkaConfig,
   YtbPreferences,
   SnbtChoice,
+  RaporData,
 } from '../types';
 import {
   INITIAL_TOPICS,
@@ -34,6 +35,7 @@ const STORAGE_KEYS = {
   TKA_CONFIG: 'studikuasai_tka_config_v2',
   YTB_PREFERENCES: 'studikuasai_ytb_prefs_v2',
   SNBT_CHOICES: 'studikuasai_snbt_choices_v2',
+  RAPOR_DATA: 'studikuasai_rapor_kurikulum_merdeka_v1',
 };
 
 export const DEFAULT_YTB_PREFERENCES: YtbPreferences = {
@@ -135,6 +137,91 @@ export function loadSnbtChoices(): SnbtChoice[] {
 
 export function saveSnbtChoices(choices: SnbtChoice[]): void {
   safeSet(STORAGE_KEYS.SNBT_CHOICES, choices);
+}
+
+// Default Rapor Data following Kurikulum Merdeka
+// Kelas 10 (Semester 1 & 2): IPA & IPS Terpadu
+// Kelas 11 & 12 (Semester 3, 4, 5): 4 Mapel Pilihan (Biologi, Fisika, Kimia, Bahasa Jepang)
+export const DEFAULT_RAPOR_DATA: RaporData = {
+  chosenElectives: ['Biologi', 'Fisika', 'Kimia', 'Bahasa Jepang'],
+  semesters: [
+    {
+      semester: 1,
+      gradeLevel: 'Kelas 10',
+      matematika: 88,
+      bahasaIndonesia: 88,
+      bahasaInggris: 86,
+      ipaTerpadu: 87, // IPA Terpadu (Fisika, Kimia, Biologi)
+      ipsTerpadu: 85, // IPS Terpadu (Ekonomi, Sosiologi, Geografi, Sejarah)
+      rataRataUmum: 86.8,
+    },
+    {
+      semester: 2,
+      gradeLevel: 'Kelas 10',
+      matematika: 89,
+      bahasaIndonesia: 87,
+      bahasaInggris: 88,
+      ipaTerpadu: 88,
+      ipsTerpadu: 87,
+      rataRataUmum: 87.8,
+    },
+    {
+      semester: 3,
+      gradeLevel: 'Kelas 11',
+      matematika: 91,
+      bahasaIndonesia: 90,
+      bahasaInggris: 89,
+      electiveGrades: {
+        'Biologi': 90,
+        'Fisika': 88,
+        'Kimia': 89,
+        'Bahasa Jepang': 91,
+      },
+      rataRataUmum: 89.7,
+    },
+    {
+      semester: 4,
+      gradeLevel: 'Kelas 11',
+      matematika: 92,
+      bahasaIndonesia: 89,
+      bahasaInggris: 91,
+      electiveGrades: {
+        'Biologi': 91,
+        'Fisika': 90,
+        'Kimia': 91,
+        'Bahasa Jepang': 92,
+      },
+      rataRataUmum: 90.9,
+    },
+    {
+      semester: 5,
+      gradeLevel: 'Kelas 12',
+      matematika: 94,
+      bahasaIndonesia: 91,
+      bahasaInggris: 92,
+      electiveGrades: {
+        'Biologi': 93,
+        'Fisika': 92,
+        'Kimia': 93,
+        'Bahasa Jepang': 94,
+      },
+      rataRataUmum: 92.7,
+    },
+  ],
+  hasEnglishCert: true,
+  certType: 'Duolingo English Test (DET)',
+  certScore: '125 (CEFR C1)',
+  hasOlympOrAwards: true,
+  awardLevel: 'Nasional (OSN)',
+  hasExtracurricular: true,
+};
+
+export function loadRaporData(): RaporData {
+  return safeGet<RaporData>(STORAGE_KEYS.RAPOR_DATA, DEFAULT_RAPOR_DATA);
+}
+
+export function saveRaporData(data: RaporData): void {
+  safeSet(STORAGE_KEYS.RAPOR_DATA, data);
 }
 
 // Reset all progress to 0% from scratch

@@ -272,6 +272,39 @@ Pasca kelulusan, visi saya adalah berkontribusi pada pengembangan protokol keama
   },
 ];
 
+export const AVAILABLE_ELECTIVE_SUBJECTS: {
+  name: string;
+  category: 'MIPA' | 'IPS' | 'Bahasa & Budaya' | 'Vokasi / Terapan';
+}[] = [
+  // MIPA
+  { name: 'Biologi', category: 'MIPA' },
+  { name: 'Fisika', category: 'MIPA' },
+  { name: 'Kimia', category: 'MIPA' },
+  { name: 'Matematika Tingkat Lanjut', category: 'MIPA' },
+  { name: 'Informatika', category: 'MIPA' },
+
+  // IPS
+  { name: 'Ekonomi', category: 'IPS' },
+  { name: 'Sosiologi', category: 'IPS' },
+  { name: 'Geografi', category: 'IPS' },
+  { name: 'Antropologi', category: 'IPS' },
+  { name: 'Sejarah Tingkat Lanjut', category: 'IPS' },
+
+  // Bahasa & Budaya
+  { name: 'Bahasa Jepang', category: 'Bahasa & Budaya' },
+  { name: 'Bahasa Jerman', category: 'Bahasa & Budaya' },
+  { name: 'Bahasa Mandarin', category: 'Bahasa & Budaya' },
+  { name: 'Bahasa Arab', category: 'Bahasa & Budaya' },
+  { name: 'Bahasa Prancis', category: 'Bahasa & Budaya' },
+  { name: 'Bahasa Korea', category: 'Bahasa & Budaya' },
+  { name: 'Bahasa & Sastra Inggris', category: 'Bahasa & Budaya' },
+  { name: 'Bahasa & Sastra Indonesia', category: 'Bahasa & Budaya' },
+
+  // Vokasi / Terapan
+  { name: 'Prakarya & Kewirausahaan (PKWU)', category: 'Vokasi / Terapan' },
+  { name: 'Rekayasa Perangkat Lunak', category: 'Vokasi / Terapan' },
+];
+
 // Calculation of acceptance probability based on user's GPA, certs, and city rule compliance
 export function calculateYtbProbability(
   gpa: number, // 0 - 100
@@ -279,7 +312,8 @@ export function calculateYtbProbability(
   isAwardAvailable: boolean,
   hasLoIReady: boolean,
   cityRuleCompliant: boolean,
-  targetCluster: string
+  targetCluster: string,
+  chosenElectives?: string[]
 ): {
   averageGpa: number;
   probabilityScore: number;
@@ -294,6 +328,21 @@ export function calculateYtbProbability(
 
   const isMedical = targetCluster.toLowerCase().includes('kedokteran');
   const minGpaRequired = isMedical ? 90 : 70;
+
+  // Kurikulum Merdeka Subject Combination Insight
+  if (chosenElectives && chosenElectives.length > 0) {
+    const hasScience = chosenElectives.some(e => ['Biologi', 'Fisika', 'Kimia'].includes(e));
+    const hasLanguage = chosenElectives.some(e => e.startsWith('Bahasa'));
+    if (hasScience && hasLanguage) {
+      insights.push(
+        `Kombinasi mapel Kurikulum Merdeka (${chosenElectives.join(', ')}) sangat seimbang: perpaduan sains kuat dengan kemampuan bahasa asing memberikan diferensiasi tinggi di seleksi beasiswa internasional.`
+      );
+    } else {
+      insights.push(
+        `Mata pelajaran pilihan kelas 11 & 12 (${chosenElectives.join(', ')}) tercatat konsisten sesuai struktur Kurikulum Merdeka.`
+      );
+    }
+  }
 
   // 1. GPA Weight (Max 55 points)
   if (gpa >= 92) {

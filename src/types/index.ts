@@ -155,15 +155,23 @@ export interface YtbPreferences {
 
 export interface SemesterRapor {
   semester: number;
+  gradeLevel?: 'Kelas 10' | 'Kelas 11' | 'Kelas 12';
   matematika: number;
   bahasaInggris: number;
   bahasaIndonesia: number;
-  peminatan1: number; // e.g. Fisika / Ekonomi
-  peminatan2: number; // e.g. Kimia / Sosiologi
+  // Khusus Kelas 10 (Semester 1 & 2): IPA & IPS Terpadu
+  ipaTerpadu?: number;
+  ipsTerpadu?: number;
+  // Khusus Kelas 11 & 12 (Semester 3, 4, 5): 3-4 Mapel Pilihan (e.g. Biologi, Fisika, Kimia, B. Jepang)
+  electiveGrades?: Record<string, number>;
+  // Backward compatibility
+  peminatan1?: number;
+  peminatan2?: number;
   rataRataUmum: number;
 }
 
 export interface RaporData {
+  chosenElectives: string[]; // 3-4 Mapel Pilihan Kelas 11 & 12
   semesters: SemesterRapor[];
   hasEnglishCert: boolean;
   certType: 'TOEFL iBT' | 'IELTS' | 'Duolingo English Test (DET)' | 'Belum Ada';

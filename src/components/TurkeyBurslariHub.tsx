@@ -20,15 +20,24 @@ import {
   Sliders,
   ShieldAlert,
   Flame,
+  Plus,
+  Trash2,
+  Settings2,
+  RotateCcw,
+  Info,
+  X,
+  Layers,
 } from 'lucide-react';
 import { UniversityTarget, PaletteTheme, YtbPreferences, RaporData, SemesterRapor } from '../types';
 import {
   YTB_REQUIRED_DOCUMENTS,
   YTB_UNIVERSITY_CLUSTERS,
   YTB_SAMPLE_ESSAYS,
+  AVAILABLE_ELECTIVE_SUBJECTS,
   calculateYtbProbability,
 } from '../data/ytbGuideData';
 import { getExamCountdowns } from '../utils/countdown';
+import { loadRaporData, saveRaporData, DEFAULT_RAPOR_DATA } from '../utils/storage';
 
 interface TurkeyBurslariHubProps {
   targets: UniversityTarget[];
@@ -53,22 +62,16 @@ export const TurkeyBurslariHub: React.FC<TurkeyBurslariHubProps> = ({
   const [activeEssayIndex, setActiveEssayIndex] = useState<number>(0);
   const countdowns = getExamCountdowns();
 
-  // Rapor Data State (Semester 1 to 5)
-  const [raporData, setRaporData] = useState<RaporData>({
-    semesters: [
-      { semester: 1, matematika: 88, bahasaInggris: 86, bahasaIndonesia: 88, peminatan1: 85, peminatan2: 87, rataRataUmum: 86.8 },
-      { semester: 2, matematika: 89, bahasaInggris: 88, bahasaIndonesia: 87, peminatan1: 87, peminatan2: 88, rataRataUmum: 87.8 },
-      { semester: 3, matematika: 91, bahasaInggris: 89, bahasaIndonesia: 90, peminatan1: 88, peminatan2: 89, rataRataUmum: 89.4 },
-      { semester: 4, matematika: 92, bahasaInggris: 91, bahasaIndonesia: 89, peminatan1: 90, peminatan2: 91, rataRataUmum: 90.6 },
-      { semester: 5, matematika: 94, bahasaInggris: 92, bahasaIndonesia: 91, peminatan1: 92, peminatan2: 93, rataRataUmum: 92.4 },
-    ],
-    hasEnglishCert: true,
-    certType: 'Duolingo English Test (DET)',
-    certScore: '125 (CEFR C1)',
-    hasOlympOrAwards: true,
-    awardLevel: 'Nasional (OSN)',
-    hasExtracurricular: true,
-  });
+  // Rapor Data State initialized from storage (Kurikulum Merdeka)
+  const [raporData, setRaporData] = useState<RaporData>(loadRaporData());
+  const [isElectiveModalOpen, setIsElectiveModalOpen] = useState<boolean>(false);
+  const [customElectiveInput, setCustomElectiveInput] = useState<string>('');
+  const [electiveFilterCategory, setElectiveFilterCategory] = useState<string>('Semua');
+
+  const updateAndSaveRapor = (newData: RaporData) => {
+    setRaporData(newData);
+    saveRaporData(newData);
+  };
 
   const [hasLoIReady, setHasLoIReady] = useState<boolean>(true);
   const [cityRuleCompliant, setCityRuleCompliant] = useState<boolean>(
@@ -81,28 +84,163 @@ export const TurkeyBurslariHub: React.FC<TurkeyBurslariHubProps> = ({
     raporData.semesters.length
   ).toFixed(1);
 
-  // Compute acceptance probability
+  // Compute acceptance probability taking into account Kurikulum Merdeka electives
   const probabilityAnalysis = calculateYtbProbability(
     overallGpa,
     raporData.hasEnglishCert,
     raporData.hasOlympOrAwards,
     hasLoIReady,
     cityRuleCompliant,
-    ytbPreferences.targetMajorCluster
+    ytbPreferences.targetMajorCluster,
+    raporData.chosenElectives
   );
 
-  const handleUpdateSemesterScore = (
-    semIndex: number,
-    field: keyof SemesterRapor,
+  // Handler for Kelas 10 (Semester 1 & 2): IPA & IPS Terpadu
+  const handleUpdateKelas10Score = (
+    semIndex: 0 | 1,
+    field: 'matematika' | 'bahasaIndonesia' | 'bahasaInggris' | 'ipaTerpadu' | 'ipsTerpadu',
     value: number
   ) => {
     const updated = [...raporData.semesters];
-    const sem = { ...updated[semIndex], [field]: value };
-    // recalculate average of this semester
-    const sum = sem.matematika + sem.bahasaInggris + sem.bahasaIndonesia + sem.peminatan1 + sem.peminatan2;
+    const sem = { ...updated[semIndex], [field]: Math.max(0, Math.min(100, value)) };
+    const sum =
+      (sem.matematika || 0) +
+      (sem.bahasaIndonesia || 0) +
+      (sem.bahasaInggris || 0) +
+      (sem.ipaTerpadu || 0) +
+      (sem.ipsTerpadu || 0);
     sem.rataRataUmum = +(sum / 5).toFixed(1);
     updated[semIndex] = sem;
-    setRaporData({ ...raporData, semesters: updated });
+    updateAndSaveRapor({ ...raporData, semesters: updated });
+  };
+
+  // Handler for Kelas 11 & 12 (Semester 3, 4, 5): Core Subjects
+  const handleUpdateKelas11or12Core = (
+    semIndex: 2 | 3 | 4,
+    field: 'matematika' | 'bahasaIndonesia' | 'bahasaInggris',
+    value: number
+  ) => {
+    const updated = [...raporData.semesters];
+    const sem = { ...updated[semIndex], [field]: Math.max(0, Math.min(100, value)) };
+    const coreSum = (sem.matematika || 0) + (sem.bahasaIndonesia || 0) + (sem.bahasaInggris || 0);
+    const electives = raporData.chosenElectives;
+    const electivesMap = sem.electiveGrades || {};
+    const electivesSum = electives.reduce((acc, name) => acc + (electivesMap[name] || 85), 0);
+    const totalCount = 3 + electives.length;
+    sem.rataRataUmum = +((coreSum + electivesSum) / totalCount).toFixed(1);
+    updated[semIndex] = sem;
+    updateAndSaveRapor({ ...raporData, semesters: updated });
+  };
+
+  // Handler for Kelas 11 & 12 (Semester 3, 4, 5): Elective Grades
+  const handleUpdateElectiveGrade = (
+    semIndex: 2 | 3 | 4,
+    subjectName: string,
+    value: number
+  ) => {
+    const updated = [...raporData.semesters];
+    const sem = { ...updated[semIndex] };
+    const electivesMap = { ...(sem.electiveGrades || {}), [subjectName]: Math.max(0, Math.min(100, value)) };
+    sem.electiveGrades = electivesMap;
+    const coreSum = (sem.matematika || 0) + (sem.bahasaIndonesia || 0) + (sem.bahasaInggris || 0);
+    const electives = raporData.chosenElectives;
+    const electivesSum = electives.reduce((acc, name) => acc + (electivesMap[name] || 85), 0);
+    const totalCount = 3 + electives.length;
+    sem.rataRataUmum = +((coreSum + electivesSum) / totalCount).toFixed(1);
+    updated[semIndex] = sem;
+    updateAndSaveRapor({ ...raporData, semesters: updated });
+  };
+
+  // Add an elective subject (3 - 4 electives)
+  const handleAddElective = (subjectName: string) => {
+    const name = subjectName.trim();
+    if (!name || raporData.chosenElectives.includes(name)) return;
+    if (raporData.chosenElectives.length >= 4) return;
+
+    const newElectives = [...raporData.chosenElectives, name];
+    const updatedSemesters = raporData.semesters.map((sem, idx) => {
+      if (idx >= 2) {
+        const electivesMap = { ...(sem.electiveGrades || {}) };
+        if (electivesMap[name] === undefined) {
+          electivesMap[name] = 88;
+        }
+        const coreSum = (sem.matematika || 0) + (sem.bahasaIndonesia || 0) + (sem.bahasaInggris || 0);
+        const electivesSum = newElectives.reduce((acc, s) => acc + (electivesMap[s] || 85), 0);
+        const totalCount = 3 + newElectives.length;
+        return {
+          ...sem,
+          electiveGrades: electivesMap,
+          rataRataUmum: +((coreSum + electivesSum) / totalCount).toFixed(1),
+        };
+      }
+      return sem;
+    });
+
+    updateAndSaveRapor({
+      ...raporData,
+      chosenElectives: newElectives,
+      semesters: updatedSemesters,
+    });
+    setIsElectiveModalOpen(false);
+  };
+
+  // Remove an elective subject (keep minimum 3)
+  const handleRemoveElective = (subjectName: string) => {
+    if (raporData.chosenElectives.length <= 3) return;
+
+    const newElectives = raporData.chosenElectives.filter((s) => s !== subjectName);
+    const updatedSemesters = raporData.semesters.map((sem, idx) => {
+      if (idx >= 2) {
+        const electivesMap = { ...(sem.electiveGrades || {}) };
+        delete electivesMap[subjectName];
+        const coreSum = (sem.matematika || 0) + (sem.bahasaIndonesia || 0) + (sem.bahasaInggris || 0);
+        const electivesSum = newElectives.reduce((acc, s) => acc + (electivesMap[s] || 85), 0);
+        const totalCount = 3 + newElectives.length;
+        return {
+          ...sem,
+          electiveGrades: electivesMap,
+          rataRataUmum: +((coreSum + electivesSum) / totalCount).toFixed(1),
+        };
+      }
+      return sem;
+    });
+
+    updateAndSaveRapor({
+      ...raporData,
+      chosenElectives: newElectives,
+      semesters: updatedSemesters,
+    });
+  };
+
+  // Apply user-requested preset: Biologi, Fisika, Kimia, Bahasa Jepang
+  const handleSetUserPreset = () => {
+    const targetElectives = ['Biologi', 'Fisika', 'Kimia', 'Bahasa Jepang'];
+    const updatedSemesters = raporData.semesters.map((sem, idx) => {
+      if (idx >= 2) {
+        const existingMap = sem.electiveGrades || {};
+        const newMap: Record<string, number> = {
+          'Biologi': existingMap['Biologi'] || 91,
+          'Fisika': existingMap['Fisika'] || 90,
+          'Kimia': existingMap['Kimia'] || 91,
+          'Bahasa Jepang': existingMap['Bahasa Jepang'] || 92,
+        };
+        const coreSum = (sem.matematika || 0) + (sem.bahasaIndonesia || 0) + (sem.bahasaInggris || 0);
+        const electivesSum = targetElectives.reduce((acc, s) => acc + (newMap[s] || 85), 0);
+        const totalCount = 3 + targetElectives.length;
+        return {
+          ...sem,
+          electiveGrades: newMap,
+          rataRataUmum: +((coreSum + electivesSum) / totalCount).toFixed(1),
+        };
+      }
+      return sem;
+    });
+
+    updateAndSaveRapor({
+      ...raporData,
+      chosenElectives: targetElectives,
+      semesters: updatedSemesters,
+    });
   };
 
   const handleToggleParticipation = () => {
@@ -342,100 +480,321 @@ export const TurkeyBurslariHub: React.FC<TurkeyBurslariHubProps> = ({
             </div>
           </div>
 
-          {/* Form Input Rapor Semester 1 - 5 */}
-          <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-4">
+          {/* Form Input Rapor Semester 1 - 5 Kurikulum Merdeka */}
+          <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <h3 className="text-base font-bold text-slate-900 font-['Outfit']">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="px-2.5 py-0.5 rounded text-[11px] font-bold text-white uppercase tracking-wider"
+                    style={{ backgroundColor: currentTheme.primary }}
+                  >
+                    Kurikulum Merdeka
+                  </span>
+                  <span className="text-xs font-semibold text-slate-500">
+                    Sistem Rapor Indonesia untuk Seleksi TBBS
+                  </span>
+                </div>
+                <h3 className="text-base font-extrabold text-slate-900 font-['Outfit'] mt-1">
                   Input Nilai Rapor Semester 1 s/d 5 (Skala 0 - 100)
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Ubah angka nilai per semester di bawah ini untuk melihat pergeseran persentase kelulusanmu secara real-time.
+                <p className="text-xs text-slate-600 mt-0.5 max-w-2xl leading-relaxed">
+                  Di Kelas 10 (Smt 1 &amp; 2), IPA dan IPS dipelajari sebagai satu rumpun terpadu. Sedangkan di Kelas 11 &amp; 12 (Smt 3, 4, 5), siswa mendalami <strong>3 hingga 4 mata pelajaran pilihan</strong> yang konsisten.
                 </p>
               </div>
 
-              <div className="text-xs font-semibold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
-                Rata-rata 5 Semester: <span className="font-mono text-slate-900 font-bold">{overallGpa}</span>
+              <div className="text-xs font-semibold text-slate-700 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200 shrink-0">
+                Rata-rata Kumulatif 5 Semester:{' '}
+                <span className="font-mono text-slate-900 font-extrabold text-sm ml-1" style={{ color: currentTheme.primary }}>
+                  {overallGpa}
+                </span>
+                <span className="text-[11px] text-slate-400 font-normal ml-0.5">/ 100</span>
               </div>
             </div>
 
-            {/* Table of Semesters */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 text-slate-500 bg-slate-50">
-                    <th className="p-2.5 font-semibold">Semester</th>
-                    <th className="p-2.5 font-semibold">Matematika</th>
-                    <th className="p-2.5 font-semibold">Bahasa Inggris</th>
-                    <th className="p-2.5 font-semibold">Bahasa Indonesia</th>
-                    <th className="p-2.5 font-semibold">Peminatan 1 (Fis/Eko)</th>
-                    <th className="p-2.5 font-semibold">Peminatan 2 (Kim/Sos)</th>
-                    <th className="p-2.5 font-semibold text-right">Rata-rata Smt</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-mono">
-                  {raporData.semesters.map((sem, idx) => (
-                    <tr key={sem.semester} className="hover:bg-slate-50/60">
-                      <td className="p-2.5 font-sans font-bold text-slate-800">
-                        Semester {sem.semester} {sem.semester === 5 ? '(Terbaru)' : ''}
-                      </td>
-                      <td className="p-2.5">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={sem.matematika}
-                          onChange={(e) => handleUpdateSemesterScore(idx, 'matematika', Number(e.target.value))}
-                          className="w-16 p-1 rounded border border-slate-200 text-center font-bold text-slate-900 focus:ring-1 focus:ring-indigo-500"
-                        />
-                      </td>
-                      <td className="p-2.5">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={sem.bahasaInggris}
-                          onChange={(e) => handleUpdateSemesterScore(idx, 'bahasaInggris', Number(e.target.value))}
-                          className="w-16 p-1 rounded border border-slate-200 text-center font-bold text-slate-900 focus:ring-1 focus:ring-indigo-500"
-                        />
-                      </td>
-                      <td className="p-2.5">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={sem.bahasaIndonesia}
-                          onChange={(e) => handleUpdateSemesterScore(idx, 'bahasaIndonesia', Number(e.target.value))}
-                          className="w-16 p-1 rounded border border-slate-200 text-center font-bold text-slate-900 focus:ring-1 focus:ring-indigo-500"
-                        />
-                      </td>
-                      <td className="p-2.5">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={sem.peminatan1}
-                          onChange={(e) => handleUpdateSemesterScore(idx, 'peminatan1', Number(e.target.value))}
-                          className="w-16 p-1 rounded border border-slate-200 text-center font-bold text-slate-900 focus:ring-1 focus:ring-indigo-500"
-                        />
-                      </td>
-                      <td className="p-2.5">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={sem.peminatan2}
-                          onChange={(e) => handleUpdateSemesterScore(idx, 'peminatan2', Number(e.target.value))}
-                          className="w-16 p-1 rounded border border-slate-200 text-center font-bold text-slate-900 focus:ring-1 focus:ring-indigo-500"
-                        />
-                      </td>
-                      <td className="p-2.5 text-right font-bold text-slate-900">
-                        {sem.rataRataUmum}
-                      </td>
+            {/* A. Konfigurasi Mata Pelajaran Pilihan Kelas 11 & 12 (3 - 4 Mapel) */}
+            <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/90 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <span className="text-xs font-bold text-slate-800">
+                    Mata Pelajaran Pilihan Kelas 11 &amp; 12 ({raporData.chosenElectives.length}/4 Terpilih):
+                  </span>
+                  <span className="text-[11px] text-slate-500 italic hidden md:inline">
+                    (Kelas 12 konsisten mengikuti pilihan kelas 11)
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleSetUserPreset}
+                    className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white border border-slate-200 hover:border-indigo-300 text-slate-700 hover:text-indigo-600 transition-colors cursor-pointer shadow-2xs"
+                    title="Pasang mapel pilihan: Biologi, Fisika, Kimia, Bahasa Jepang"
+                  >
+                    ⚡ Preset Kamu (Bio, Fis, Kim, B. Jepang)
+                  </button>
+
+                  {raporData.chosenElectives.length < 4 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsElectiveModalOpen(true)}
+                      className="px-3 py-1 rounded-lg text-xs font-bold text-white shadow-xs hover:opacity-90 transition-opacity flex items-center gap-1 cursor-pointer"
+                      style={{ backgroundColor: currentTheme.primary }}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Tambah Mapel Pilihan</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Chosen Electives Badges */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {raporData.chosenElectives.map((subject, idx) => {
+                  const subjectMeta = AVAILABLE_ELECTIVE_SUBJECTS.find((s) => s.name === subject);
+                  const categoryTag = subjectMeta?.category || 'Pilihan';
+
+                  const badgeColor =
+                    categoryTag === 'MIPA'
+                      ? 'bg-blue-50 text-blue-800 border-blue-200'
+                      : categoryTag === 'IPS'
+                      ? 'bg-amber-50 text-amber-800 border-amber-200'
+                      : categoryTag === 'Bahasa & Budaya'
+                      ? 'bg-purple-50 text-purple-800 border-purple-200'
+                      : 'bg-emerald-50 text-emerald-800 border-emerald-200';
+
+                  return (
+                    <div
+                      key={subject}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold shadow-2xs ${badgeColor}`}
+                    >
+                      <span className="font-mono text-[10px] opacity-70">#{idx + 1}</span>
+                      <span>{subject}</span>
+                      <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.2 rounded bg-white/70 font-semibold">
+                        {categoryTag}
+                      </span>
+                      {raporData.chosenElectives.length > 3 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveElective(subject)}
+                          className="hover:text-rose-600 transition-colors p-0.5 rounded cursor-pointer"
+                          title={`Hapus ${subject} dari mapel pilihan`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* B. TABEL 1: Kelas 10 (Semester 1 & 2) - Fondasi Terpadu */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Bagian 1: Kelas 10 · Semester 1 &amp; 2 (Fondasi IPA &amp; IPS Terpadu)
+                  </h4>
+                </div>
+                <span className="text-[11px] text-slate-500">
+                  5 Mapel (Mat, B. Indo, B. Ing, IPA Terpadu, IPS Terpadu)
+                </span>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-600 bg-slate-50">
+                      <th className="p-3 font-semibold w-36">Semester</th>
+                      <th className="p-3 font-semibold">Matematika</th>
+                      <th className="p-3 font-semibold">B. Indonesia</th>
+                      <th className="p-3 font-semibold">B. Inggris</th>
+                      <th className="p-3 font-semibold text-emerald-800 bg-emerald-50/50">
+                        IPA Terpadu (Fis/Kim/Bio)
+                      </th>
+                      <th className="p-3 font-semibold text-amber-800 bg-amber-50/50">
+                        IPS Terpadu (Eko/Sos/Geo/Sej)
+                      </th>
+                      <th className="p-3 font-semibold text-right">Rata-rata</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-mono">
+                    {[0, 1].map((idx) => {
+                      const sem = raporData.semesters[idx];
+                      if (!sem) return null;
+                      return (
+                        <tr key={sem.semester} className="hover:bg-slate-50/60">
+                          <td className="p-3 font-sans font-bold text-slate-800">
+                            Semester {sem.semester} <span className="text-[10px] text-slate-400 font-normal">(Kelas 10)</span>
+                          </td>
+                          <td className="p-3">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={sem.matematika}
+                              onChange={(e) => handleUpdateKelas10Score(idx as 0 | 1, 'matematika', Number(e.target.value))}
+                              className="w-16 p-1.5 rounded-lg border border-slate-200 text-center font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                            />
+                          </td>
+                          <td className="p-3">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={sem.bahasaIndonesia}
+                              onChange={(e) => handleUpdateKelas10Score(idx as 0 | 1, 'bahasaIndonesia', Number(e.target.value))}
+                              className="w-16 p-1.5 rounded-lg border border-slate-200 text-center font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                            />
+                          </td>
+                          <td className="p-3">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={sem.bahasaInggris}
+                              onChange={(e) => handleUpdateKelas10Score(idx as 0 | 1, 'bahasaInggris', Number(e.target.value))}
+                              className="w-16 p-1.5 rounded-lg border border-slate-200 text-center font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                            />
+                          </td>
+                          <td className="p-3 bg-emerald-50/30">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={sem.ipaTerpadu ?? 87}
+                              onChange={(e) => handleUpdateKelas10Score(idx as 0 | 1, 'ipaTerpadu', Number(e.target.value))}
+                              className="w-16 p-1.5 rounded-lg border border-emerald-300 text-center font-bold text-emerald-950 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                            />
+                          </td>
+                          <td className="p-3 bg-amber-50/30">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={sem.ipsTerpadu ?? 86}
+                              onChange={(e) => handleUpdateKelas10Score(idx as 0 | 1, 'ipsTerpadu', Number(e.target.value))}
+                              className="w-16 p-1.5 rounded-lg border border-amber-300 text-center font-bold text-amber-950 focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
+                            />
+                          </td>
+                          <td className="p-3 text-right font-bold text-slate-900 text-sm">
+                            {sem.rataRataUmum}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* C. TABEL 2: Kelas 11 & 12 (Semester 3, 4, 5) - Mata Pelajaran Pilihan */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Bagian 2: Kelas 11 &amp; 12 · Semester 3, 4, 5 (Mata Pelajaran Pilihan Terfokus)
+                  </h4>
+                </div>
+                <span className="text-[11px] text-slate-500">
+                  {3 + raporData.chosenElectives.length} Mapel (3 Mapel Wajib + {raporData.chosenElectives.length} Mapel Pilihan)
+                </span>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-600 bg-slate-50">
+                      <th className="p-3 font-semibold w-36">Semester</th>
+                      <th className="p-3 font-semibold">Matematika</th>
+                      <th className="p-3 font-semibold">B. Indonesia</th>
+                      <th className="p-3 font-semibold">B. Inggris</th>
+                      {raporData.chosenElectives.map((elective) => (
+                        <th key={elective} className="p-3 font-semibold text-indigo-900 bg-indigo-50/40">
+                          {elective}
+                        </th>
+                      ))}
+                      <th className="p-3 font-semibold text-right">Rata-rata</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-mono">
+                    {[2, 3, 4].map((idx) => {
+                      const sem = raporData.semesters[idx];
+                      if (!sem) return null;
+                      const isLatest = sem.semester === 5;
+                      const gradeLabel =
+                        sem.semester === 3
+                          ? 'Kelas 11 Smt 1'
+                          : sem.semester === 4
+                          ? 'Kelas 11 Smt 2'
+                          : 'Kelas 12 Smt 1 (Terlampir TBBS)';
+
+                      return (
+                        <tr key={sem.semester} className={`hover:bg-slate-50/60 ${isLatest ? 'bg-indigo-50/20' : ''}`}>
+                          <td className="p-3 font-sans font-bold text-slate-800">
+                            Semester {sem.semester}{' '}
+                            <span className="text-[10px] text-indigo-600 font-semibold block">
+                              {gradeLabel}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={sem.matematika}
+                              onChange={(e) => handleUpdateKelas11or12Core(idx as 2 | 3 | 4, 'matematika', Number(e.target.value))}
+                              className="w-16 p-1.5 rounded-lg border border-slate-200 text-center font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                            />
+                          </td>
+                          <td className="p-3">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={sem.bahasaIndonesia}
+                              onChange={(e) => handleUpdateKelas11or12Core(idx as 2 | 3 | 4, 'bahasaIndonesia', Number(e.target.value))}
+                              className="w-16 p-1.5 rounded-lg border border-slate-200 text-center font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                            />
+                          </td>
+                          <td className="p-3">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={sem.bahasaInggris}
+                              onChange={(e) => handleUpdateKelas11or12Core(idx as 2 | 3 | 4, 'bahasaInggris', Number(e.target.value))}
+                              className="w-16 p-1.5 rounded-lg border border-slate-200 text-center font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                            />
+                          </td>
+                          {raporData.chosenElectives.map((elective) => {
+                            const gradeVal = sem.electiveGrades?.[elective] ?? 90;
+                            return (
+                              <td key={elective} className="p-3 bg-indigo-50/20">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={gradeVal}
+                                  onChange={(e) => handleUpdateElectiveGrade(idx as 2 | 3 | 4, elective, Number(e.target.value))}
+                                  className="w-16 p-1.5 rounded-lg border border-indigo-200 text-center font-bold text-indigo-950 focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
+                                />
+                              </td>
+                            );
+                          })}
+                          <td className="p-3 text-right font-bold text-slate-900 text-sm">
+                            {sem.rataRataUmum}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Profile Booster Checkboxes */}
@@ -752,6 +1111,122 @@ export const TurkeyBurslariHub: React.FC<TurkeyBurslariHubProps> = ({
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {/* 4. Modal Pilih Mata Pelajaran Pilihan Kelas 11 & 12 */}
+      {isElectiveModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs overflow-y-auto">
+          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 font-['Outfit']">
+                  Pilih Mata Pelajaran Pilihan Kelas 11 &amp; 12
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Sesuai Kurikulum Merdeka (maksimal 4 mapel pilihan, saat ini: {raporData.chosenElectives.length}/4)
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsElectiveModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Category Filter Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+                {['Semua', 'MIPA', 'IPS', 'Bahasa & Budaya', 'Vokasi / Terapan'].map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setElectiveFilterCategory(cat)}
+                    className={`px-3 py-1.5 rounded-lg whitespace-nowrap font-semibold cursor-pointer transition-colors ${
+                      electiveFilterCategory === cat
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              {/* Subject Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
+                {AVAILABLE_ELECTIVE_SUBJECTS.filter(
+                  (s) => electiveFilterCategory === 'Semua' || s.category === electiveFilterCategory
+                ).map((subject) => {
+                  const isAlreadyChosen = raporData.chosenElectives.includes(subject.name);
+                  return (
+                    <div
+                      key={subject.name}
+                      onClick={() => !isAlreadyChosen && handleAddElective(subject.name)}
+                      className={`p-3 rounded-xl border flex items-center justify-between text-xs transition-all ${
+                        isAlreadyChosen
+                          ? 'bg-slate-100/80 border-slate-200 text-slate-400 cursor-not-allowed'
+                          : 'bg-white border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30 cursor-pointer group'
+                      }`}
+                    >
+                      <div>
+                        <div className="font-bold text-slate-800 group-hover:text-indigo-600">
+                          {subject.name}
+                        </div>
+                        <div className="text-[10px] text-slate-400">{subject.category}</div>
+                      </div>
+
+                      {isAlreadyChosen ? (
+                        <span className="text-[10px] font-bold text-slate-400 px-2 py-0.5 rounded bg-slate-200/60">
+                          Sudah Terpilih
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-indigo-600 bg-indigo-50 group-hover:bg-indigo-600 group-hover:text-white transition-all"
+                        >
+                          Pilih
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Custom Elective Input */}
+              <div className="pt-3 border-t border-slate-100 space-y-2">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Tidak menemukan mapelmu? Masukkan mapel pilihan kustom:
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Contoh: Bahasa Korea / Antropologi Lanjut..."
+                    value={customElectiveInput}
+                    onChange={(e) => setCustomElectiveInput(e.target.value)}
+                    className="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (customElectiveInput.trim()) {
+                        handleAddElective(customElectiveInput.trim());
+                        setCustomElectiveInput('');
+                      }
+                    }}
+                    disabled={!customElectiveInput.trim() || raporData.chosenElectives.length >= 4}
+                    className="px-4 py-2 text-xs font-bold text-white rounded-xl shadow-xs disabled:opacity-50 cursor-pointer"
+                    style={{ backgroundColor: currentTheme.primary }}
+                  >
+                    Tambah
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
